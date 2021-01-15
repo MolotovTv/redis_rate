@@ -1,20 +1,22 @@
 package redis_rate_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
-	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis/v8"
 	"golang.org/x/time/rate"
 
-	"github.com/go-redis/redis_rate/v7"
+	"github.com/molotovtv/redis_rate"
 )
 
 func rateLimiter() *redis_rate.Limiter {
 	ring := redis.NewRing(&redis.RingOptions{
 		Addrs: map[string]string{"server0": ":6379"},
 	})
-	if err := ring.FlushDb().Err(); err != nil {
+
+	if err := ring.FlushDB(context.Background()).Err(); err != nil {
 		panic(err)
 	}
 	return redis_rate.NewLimiter(ring)
@@ -23,7 +25,7 @@ func rateLimiter() *redis_rate.Limiter {
 func TestAllow(t *testing.T) {
 	l := rateLimiter()
 
-	rate, delay, allow := l.Allow("test_id", 1, time.Minute)
+	rate, delay, allow := l.Allow(context.Background(), "test_id", 1, time.Minute)
 	if !allow {
 		t.Fatalf("rate limited with rate %d", rate)
 	}
@@ -34,7 +36,7 @@ func TestAllow(t *testing.T) {
 		t.Fatalf("got %s, wanted <= %s", delay, time.Minute)
 	}
 
-	rate, _, allow = l.Allow("test_id", 1, time.Minute)
+	rate, _, allow = l.Allow(context.Background(), "test_id", 1, time.Minute)
 	if allow {
 		t.Fatalf("not rate limited with rate %d", rate)
 	}
@@ -49,12 +51,12 @@ func TestAllowRateMinute(t *testing.T) {
 
 	l := rateLimiter()
 
-	_, allow := l.AllowRate("rate", n*rate.Every(dur))
+	_, allow := l.AllowRate(context.Background(), "rate", n*rate.Every(dur))
 	if !allow {
 		t.Fatal("rate limited")
 	}
 
-	delay, allow := l.AllowRate("rate", n*rate.Every(dur))
+	delay, allow := l.AllowRate(context.Background(), "rate", n*rate.Every(dur))
 	if allow {
 		t.Fatal("not rate limited")
 	}
@@ -70,13 +72,13 @@ func TestAllowRateSecond(t *testing.T) {
 	l := rateLimiter()
 
 	for i := 0; i < n; i++ {
-		_, allow := l.AllowRate("rate", n*rate.Every(dur))
+		_, allow := l.AllowRate(context.Background(), "rate", n*rate.Every(dur))
 		if !allow {
 			t.Fatal("rate limited")
 		}
 	}
 
-	delay, allow := l.AllowRate("rate", n*rate.Every(dur))
+	delay, allow := l.AllowRate(context.Background(), "rate", n*rate.Every(dur))
 	if allow {
 		t.Fatal("not rate limited")
 	}
@@ -90,7 +92,7 @@ func TestRedisIsDown(t *testing.T) {
 	l := redis_rate.NewLimiter(ring)
 	l.Fallback = rate.NewLimiter(rate.Every(time.Second), 1)
 
-	rate, _, allow := l.AllowMinute("test_id", 1)
+	rate, _, allow := l.AllowMinute(context.Background(), "test_id", 1)
 	if !allow {
 		t.Fatalf("rate limited with rate %d", rate)
 	}
@@ -98,7 +100,7 @@ func TestRedisIsDown(t *testing.T) {
 		t.Fatalf("got %d, wanted 0", rate)
 	}
 
-	rate, _, allow = l.AllowMinute("test_id", 1)
+	rate, _, allow = l.AllowMinute(context.Background(), "test_id", 1)
 	if allow {
 		t.Fatalf("not rate limited with rate %d", rate)
 	}
@@ -110,7 +112,7 @@ func TestRedisIsDown(t *testing.T) {
 func TestAllowN(t *testing.T) {
 	l := rateLimiter()
 
-	rate, delay, allow := l.AllowN("test_allow_n", 1, time.Minute, 1)
+	rate, delay, allow := l.AllowN(context.Background(), "test_allow_n", 1, time.Minute, 1)
 	if !allow {
 		t.Fatalf("rate limited with rate %d", rate)
 	}
@@ -121,9 +123,9 @@ func TestAllowN(t *testing.T) {
 		t.Fatalf("got %s, wanted <= %s", delay, time.Minute)
 	}
 
-	l.AllowN("test_allow_n", 1, time.Minute, 2)
+	l.AllowN(context.Background(), "test_allow_n", 1, time.Minute, 2)
 
-	rate, delay, allow = l.AllowN("test_allow_n", 1, time.Minute, 0)
+	rate, delay, allow = l.AllowN(context.Background(), "test_allow_n", 1, time.Minute, 0)
 	if allow {
 		t.Fatalf("should rate limit with rate %d", rate)
 	}
