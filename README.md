@@ -14,19 +14,19 @@ import (
     "time"
 
     "golang.org/x/time/rate"
-    "github.com/go-redis/redis_rate/v7"
-    "github.com/go-redis/redis/v7"
+    "github.com/molotovtv/redis_rate/v11"
+    "github.com/redis/go-redis/v9"
 )
 
-func handler(w http.ResponseWriter, req *http.Request, rateLimiter *redis_rate.Limiter) {
+func handler(w http.ResponseWriter, r *http.Request, rateLimiter *redis_rate.Limiter) {
     userID := "user-12345"
     limit := int64(5)
 
-    rate, delay, allowed := rateLimiter.AllowMinute(userID, limit)
+    count, delay, allowed := rateLimiter.AllowMinute(r.Context(), userID, limit)
     if !allowed {
         h := w.Header()
         h.Set("X-RateLimit-Limit", strconv.FormatInt(limit, 10))
-        h.Set("X-RateLimit-Remaining", strconv.FormatInt(limit-rate, 10))
+        h.Set("X-RateLimit-Remaining", strconv.FormatInt(limit-count, 10))
         delaySec := int64(delay/time.Second)
         h.Set("X-RateLimit-Delay", strconv.FormatInt(delaySec, 10))
         http.Error(w, "API rate limit exceeded.", 429)
@@ -37,13 +37,13 @@ func handler(w http.ResponseWriter, req *http.Request, rateLimiter *redis_rate.L
     fmt.Fprint(w, "Rate limit remaining: ", strconv.FormatInt(limit-rate, 10))
 }
 
-func statusHandler(w http.ResponseWriter, req *http.Request, rateLimiter *redis_rate.Limiter) {
+func statusHandler(w http.ResponseWriter, r *http.Request, rateLimiter *redis_rate.Limiter) {
     userID := "user-12345"
     limit := int64(5)
 
     // With n=0 we just retrieve the current limit.
-    rate, delay, allowed := rateLimiter.AllowN(userID, limit, time.Minute, 0)
-    fmt.Fprintf(w, "Current rate: %d", rate)
+    count, delay, allowed := rateLimiter.AllowN(r.Context(), userID, limit, time.Minute, 0)
+    fmt.Fprintf(w, "Current rate: %d", count)
     fmt.Fprintf(w, "Delay: %s", delay)
     fmt.Fprintf(w, "Allowed: %v", allowed)
 }

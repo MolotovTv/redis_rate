@@ -8,7 +8,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/time/rate"
 
-	"github.com/molotovtv/redis_rate"
+	"github.com/molotovtv/redis_rate/v11"
 )
 
 func rateLimiter() *redis_rate.Limiter {
